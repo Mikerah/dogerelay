@@ -56,6 +56,7 @@ contract Superblocks is ErrorCodes {
         bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
         SuperblockInfo storage sbi = superblocks[superblockId];
         require(sbi.status == Status.Unitialized);
+        require(_parentHash == 0);
         sbi.blocksMerkleRoot = _blocksMerkleRoot;
         sbi.accumulatedWork = _accumulatedWork;
         sbi.timestamp = _timestamp;
@@ -78,7 +79,15 @@ contract Superblocks is ErrorCodes {
     }
 
     function proposeSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint) {
+        SuperblockInfo storage parent = superblocks[_parentHash];
+
+        if (parent.status == Status.Invalid || parent.status == Status.Unitialized) {
+            ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_PARENT);
+            return ERR_SUPERBLOCK_BAD_PARENT;
+        }
+
         bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
+
         SuperblockInfo storage sbi = superblocks[superblockId];
 
         // Make sure it was not submitted
@@ -155,6 +164,8 @@ contract Superblocks is ErrorCodes {
             sbi.status = Status.Invalid;
             // Send deposit to challenger
             ErrorSuperblock(ci.superblockId, ERR_SUPERBLOCK_INVALID_MERKLE);
+        } else {
+
         }
     }
 

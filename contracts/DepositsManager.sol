@@ -30,9 +30,9 @@ contract DepositsManager {
     // @return – the user's updated deposit amount.
     function increaseDeposit(address who, uint amount) internal {
         deposits[who] += amount;
-        require(deposits[who] <= this.balance);
+        require(deposits[who] <= address(this).balance);
 
-        DepositMade(who, amount);
+        emit DepositMade(who, amount);
     }
 
     // @dev – allows a user to withdraw eth from their deposit.
@@ -44,7 +44,7 @@ contract DepositsManager {
         deposits[msg.sender] -= amount;
         msg.sender.transfer(amount);
 
-        DepositWithdrawn(msg.sender, amount);
+        emit DepositWithdrawn(msg.sender, amount);
         return deposits[msg.sender];
     }
 }

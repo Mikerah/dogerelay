@@ -1,11 +1,12 @@
 pragma solidity ^0.4.0;
 
 import {DepositsManager} from './DepositsManager.sol';
+import {Superblocks} from './Superblocks.sol';
 
 
 // ClaimManager: queues a sequence of challengers to play with a claimant.
 
-contract ClaimManager is DepositsManager {
+contract ClaimManager is DepositsManager, Superblocks {
     uint private numClaims = 1;     // index as key for the claims mapping.
     uint public minDeposit = 1;    // TODO: what should the minimum deposit be?
 
@@ -14,16 +15,19 @@ contract ClaimManager is DepositsManager {
 
     event DepositBonded(uint claimID, address account, uint amount);
     event DepositUnbonded(uint claimID, address account, uint amount);
-    event ClaimCreated(uint claimID, address claimant, bytes plaintext, bytes blockHash);
+    //event ClaimCreated(uint claimID, address claimant, bytes plaintext, bytes blockHash);
+    event ClaimCreated(uint claimID, address claimant, bytes32 superblockId);
     event ClaimChallenged(uint claimID, address challenger);
     event SessionDecided(uint sessionId, address winner, address loser);
-    event ClaimSuccessful(uint claimID, address claimant, bytes plaintext, bytes blockHash);
+    event ClaimSuccessful(uint claimID, address claimant, bytes32 superblockId);
+    event ClaimFailed(uint claimID, address claimant, bytes32 superblockId);
     event VerificationGameStarted(uint claimID, address claimant, address challenger, uint sessionId);//Rename to SessionStarted?
-    event ClaimVerificationGamesEnded(uint claimID);
+    //event ClaimVerificationGamesEnded(uint claimID);
 
     struct SuperblockClaim {
         address claimant;
-        bytes superblockId;
+        //bytes plaintext;    // the plaintext Dogecoin block header.
+        //bytes blockHash;    // the Dogecoin blockhash.
         uint createdAt;     // the block number at which the claim was created.
         address[] challengers;      // all current challengers.
         mapping(address => uint) sessions; //map challengers to sessionId's
@@ -33,6 +37,9 @@ contract ClaimManager is DepositsManager {
         mapping (address => uint) bondedDeposits;   // all deposits bonded in this claim.
         bool decided;
         uint challengeTimeoutBlockNumber;
+        //bytes32 proposalId;
+        //IScryptDependent scryptDependent;
+        bytes32 superblockId;
     }
 
   //  mapping(address => uint) public claimantClaims;
@@ -59,8 +66,8 @@ contract ClaimManager is DepositsManager {
         require(deposits[account] >= amount);
         deposits[account] -= amount;
 
-        claim.bondedDeposits[account] = claim.bondedDeposits[account].add(amount);
-        DepositBonded(claimID, account, amount);
+        claim.bondedDeposits[account] += amount;
+        emit DepositBonded(claimID, account, amount);
         return claim.bondedDeposits[account];
     }
 
@@ -82,35 +89,50 @@ contract ClaimManager is DepositsManager {
         SuperblockClaim storage claim = claims[claimID];
         require(claimExists(claim));
         require(claim.decided == true);
+
         uint bondedDeposit = claim.bondedDeposits[account];
+
         delete claim.bondedDeposits[account];
-        deposits[account] = deposits[account].add(bondedDeposit);
-        DepositUnbonded(claimID, account, bondedDeposit);
+        deposits[account] += bondedDeposit;
+
+        emit DepositUnbonded(claimID, account, bondedDeposit);
 
         return bondedDeposit;
     }
 
-    function calcId(bytes, bytes32 _hash, address claimant, bytes32 _proposalId) public pure returns (uint) {
+    /* function calcId(bytes, bytes32 _hash, address claimant, bytes32 _proposalId) public pure returns (uint) {
         return uint(keccak256(claimant, _hash, _proposalId));
-    }
+    } */
 
     // @dev – check whether a DogeCoin blockHash was calculated correctly from the plaintext block header.
     // only callable by the DogeRelay contract.
     // @param _plaintext – the plaintext blockHeader.
     // @param _blockHash – the blockHash.
     // @param claimant – the address of the Dogecoin block submitter.
-    function proposeSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public payable {
+    function checkSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public payable returns (uint) {
         // dogeRelay can directly make a deposit on behalf of the claimant.
 
         address _submitter = msg.sender;
         if (msg.value != 0) {
-          // only call if eth is included (to save gas)
-          increaseDeposit(_submitter, msg.value);
+            // only call if eth is included (to save gas)
+            increaseDeposit(_submitter, msg.value);
         }
 
-        require(deposits[_submitter] >= minDeposit);
+        if (deposits[_submitter] < minDeposit) {
+            // Minimal DEposit FailED
+            return 1;
+        }
 
-        bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
+
+        uint err;
+        bytes32 superblockId;
+        (err, superblockId) = proposeSuperblock(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
+        if (err != 0) {
+            return err;
+        }
+
+
+        // bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
 
         uint claimId = uint(superblockId);
         require(!claimExists(claims[claimId]));
@@ -126,9 +148,10 @@ contract ClaimManager is DepositsManager {
         claim.decided = false;
         //claim.proposalId = _proposalId;
         //claim.scryptDependent = _scryptDependent;
+        claim.superblockId = superblockId;
 
         bondDeposit(claimId, claim.claimant, minDeposit);
-        // ClaimCreated(claimId, claim.claimant, claim.plaintext, claim.blockHash);
+        emit ClaimCreated(claimId, claim.claimant, superblockId); // claim.plaintext, claim.blockHash);
     }
 
     // @dev – challenge an existing Scrypt claim.
@@ -146,10 +169,14 @@ contract ClaimManager is DepositsManager {
         require(deposits[msg.sender] >= minDeposit);
         bondDeposit(claimID, msg.sender, minDeposit);
 
-        claim.challengeTimeoutBlockNumber = block.number.add(defaultChallengeTimeout);
+        claim.challengeTimeoutBlockNumber += defaultChallengeTimeout;
         claim.challengers.push(msg.sender);
-        claim.numChallengers = claim.numChallengers.add(1);
-        ClaimChallenged(claimID, msg.sender);
+        claim.numChallengers += 1;
+        emit ClaimChallenged(claimID, msg.sender);
+    }
+
+    function createNewSession() internal returns (uint) {
+        return 123;
     }
 
     // @dev – runs a verification game between the claimant and
@@ -168,12 +195,15 @@ contract ClaimManager is DepositsManager {
 
             // kick off a verification game.
             // uint sessionId = scryptVerifier.claimComputation(claimID, claim.challengers[claim.currentChallenger], claim.claimant, claim.plaintext, claim.blockHash, 2049);
-            uint sessionId = 0;
+            uint sessionId = createNewSession();
+
             claim.sessions[claim.challengers[claim.currentChallenger]] = sessionId;
-            VerificationGameStarted(claimID, claim.claimant, claim.challengers[claim.currentChallenger], sessionId);
+            emit VerificationGameStarted(claimID, claim.claimant, claim.challengers[claim.currentChallenger], sessionId);
 
             claim.verificationOngoing = true;
-            claim.currentChallenger = claim.currentChallenger.add(1);
+            claim.currentChallenger += 1;
+        } else {
+
         }
     }
 
@@ -191,10 +221,11 @@ contract ClaimManager is DepositsManager {
         //require(claim.verificationOngoing == true);
         claim.verificationOngoing = false;
 
+        //TODO Fix reward splitting
         // reward the winner, with the loser's bonded deposit.
-        uint depositToTransfer = claim.bondedDeposits[loser];
-        claim.bondedDeposits[winner] = claim.bondedDeposits[winner].add(depositToTransfer);
-        delete claim.bondedDeposits[loser];
+        //uint depositToTransfer = claim.bondedDeposits[loser];
+        //claim.bondedDeposits[winner] += depositToTransfer;
+        //delete claim.bondedDeposits[loser];
 
         if (claim.claimant == loser) {
             // the claim is over.
@@ -211,7 +242,7 @@ contract ClaimManager is DepositsManager {
             revert();
         }
 
-        SessionDecided(sessionId, winner, loser);
+        emit SessionDecided(sessionId, winner, loser);
     }
 
     // @dev – check whether a claim has successfully withstood all challenges.
@@ -219,7 +250,7 @@ contract ClaimManager is DepositsManager {
     // notifying it that the Scrypt blockhash was correctly calculated.
     //
     // @param claimID – the claim ID.
-    function checkClaimSuccessful(uint claimID) public {
+    function checkClaimFinished(uint claimID) public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -228,13 +259,13 @@ contract ClaimManager is DepositsManager {
         require(claim.verificationOngoing == false);
 
         // check that the claim has exceeded the default challenge timeout.
-        require(block.number.sub(claim.createdAt) > defaultChallengeTimeout);
+        require(block.number -  claim.createdAt > defaultChallengeTimeout);
 
         //check that the claim has exceeded the claim's specific challenge timeout.
         require(block.number > claim.challengeTimeoutBlockNumber);
 
         // check that all verification games have been played.
-        require(claim.numChallengers == claim.currentChallenger);
+        require(claim.numChallengers <= claim.currentChallenger);
 
         claim.decided = true;
 
@@ -242,7 +273,7 @@ contract ClaimManager is DepositsManager {
 
         unbondDeposit(claimID, claim.claimant);
 
-        ClaimSuccessful(claimID, claim.claimant, claim.plaintext, claim.blockHash);
+        emit ClaimSuccessful(claimID, claim.claimant, claim.superblockId);
     }
 
     function claimExists(SuperblockClaim claim) pure private returns(bool) {
@@ -275,7 +306,7 @@ contract ClaimManager is DepositsManager {
         return claims[claimID].verificationOngoing;
     }
 
-    function getClaim(uint claimID)
+    /* function getClaim(uint claimID)
         public
         view
         returns(address claimant, bytes plaintext, bytes blockHash, bytes32 proposalId)
@@ -288,9 +319,9 @@ contract ClaimManager is DepositsManager {
             claim.blockHash,
             claim.proposalId
         );
-    }
+    } */
 
-    function getClaimReady(uint claimID) public view returns(bool) {
+    /* function getClaimReady(uint claimID) public view returns(bool) {
         SuperblockClaim storage claim = claims[claimID];
 
         // check that the claim exists
@@ -309,5 +340,5 @@ contract ClaimManager is DepositsManager {
         bool noPendingGames = claim.numChallengers == claim.currentChallenger;
 
         return exists && pastChallengeTimeout && pastClaimTimeout && noOngoingGames && noPendingGames;
-    }
+    } */
 }

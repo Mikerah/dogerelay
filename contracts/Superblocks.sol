@@ -46,7 +46,7 @@ contract Superblocks is ErrorCodes {
     event NewSuperblock(bytes32 superblockId);
     event ApprovedSuperblock(bytes32 superblockId);
 
-    event ChallengeSuperblock(bytes32 superblockId, address challenger, bytes32 challengeId);
+    event ChallengeSuperblock(bytes32 superblockId, address challenger);
     event ErrorSuperblock(bytes32 superblockId, uint err);
 
     function Superblock() public {
@@ -115,49 +115,46 @@ contract Superblocks is ErrorCodes {
         return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    /* function confirmSuperblock(bytes32 superblockId) public returns (uint) {
+    function confirmSuperblock(bytes32 superblockId) public returns (uint) {
         //TODO: verify authorised msg.sender
         SuperblockInfo storage sbi = superblocks[superblockId];
         if (sbi.status != Status.New) {
-            ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
+            emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
             return ERR_SUPERBLOCK_BAD_STATUS;
-        }
-        if (now - sbi.timeout < SUPERBLOCK_PERIOD) {
-            ErrorSuperblock(superblockId, ERR_SUPERBLOCK_TIMEOUT);
-            return ERR_SUPERBLOCK_TIMEOUT;
         }
         sbi.status = Status.Approved;
         if (sbi.accumulatedWork > accumulatedWork) {
             bestSuperblock = superblockId;
             accumulatedWork = sbi.accumulatedWork;
         }
-        ApprovedSuperblock(superblockId);
+        emit ApprovedSuperblock(superblockId);
         return ERR_SUPERBLOCK_OK;
-    } */
+    }
 
-    /* function challengeSuperblock(bytes32 superblockId) public returns (uint) {
+    function challengeSuperblock(bytes32 superblockId) public returns (uint) {
         SuperblockInfo storage sbi = superblocks[superblockId];
 
+        // We can challenge new superblocks or blocks being challenged
         if (sbi.status != Status.New && sbi.status != Status.InBattle) {
-            ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
+            emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
             return ERR_SUPERBLOCK_BAD_STATUS;
         }
 
         sbi.status = Status.InBattle;
 
-        bytes32 challengeId = bytes32(++numChallenges);
+        /* bytes32 challengeId = bytes32(++numChallenges);
         sbi.numChallenges++;
 
         ChallengeInfo storage ci = challenges[challengeId];
 
         ci.challenger = msg.sender;
         ci.submitter = sbi.submitter;
-        ci.superblockId = superblockId;
+        ci.superblockId = superblockId; */
 
-        ChallengeSuperblock(superblockId, msg.sender, challengeId);
+        emit ChallengeSuperblock(superblockId, msg.sender);
 
         return ERR_SUPERBLOCK_OK;
-    } */
+    }
 
     /* function sendHashes(bytes32 challengeId, bytes32[] hashes) public {
         ChallengeInfo storage ci = challenges[challengeId];
@@ -172,7 +169,7 @@ contract Superblocks is ErrorCodes {
         }
     } */
 
-    function response(bytes32 challengeId, uint what, bytes data) public {
+    /* function response(bytes32 challengeId, uint what, bytes data) public {
 
     }
 
@@ -182,7 +179,7 @@ contract Superblocks is ErrorCodes {
 
     function VerifyMerkleRoot(SuperblockInfo storage sbi, bytes32[] hashes) internal returns (bool) {
         return false;
-    }
+    } */
 
     // Getters
 

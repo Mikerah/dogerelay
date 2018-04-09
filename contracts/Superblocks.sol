@@ -1,6 +1,6 @@
 pragma solidity ^0.4.19;
 
-import "./ErrorCodes.sol";
+import {ErrorCodes} from "./ErrorCodes.sol";
 
 contract Superblocks is ErrorCodes {
 
@@ -15,38 +15,22 @@ contract Superblocks is ErrorCodes {
         bytes32 lastHash;
         bytes32 parentHash;
         address submitter;
-        //uint timeout;
         Status status;
-
-        //uint numChallenges;
-        //uint currChallenge;
-
-        // bytes32[] hashes;
-        // mapping (bytes32 => bytes)
     }
 
     // Mapping superblock id => superblock data
     mapping (bytes32 => SuperblockInfo) superblocks;
 
-    /* struct ChallengeInfo {
-        address challenger;
-        address submitter;
-        bytes32 superblockId;
-        uint round;
-    } */
-
-    //mapping (bytes32 => ChallengeInfo) challenges;
-
-    // uint numChallenges;
-
     bytes32 bestSuperblock;
     uint accumulatedWork;
 
     //TODO: Add 'indexed' to parameters
-    event NewSuperblock(bytes32 superblockId);
-    event ApprovedSuperblock(bytes32 superblockId);
+    event NewSuperblock(bytes32 superblockId, address who);
+    event ApprovedSuperblock(bytes32 superblockId, address who);
+    event ChallengeSuperblock(bytes32 superblockId, address who);
+    event SemiApprovedSuperblock(bytes32 superblockId, address who);
+    event InvalidSuperblock(bytes32 superblockId, address who);
 
-    event ChallengeSuperblock(bytes32 superblockId, address challenger);
     event ErrorSuperblock(bytes32 superblockId, uint err);
 
     function Superblock() public {
@@ -66,22 +50,19 @@ contract Superblocks is ErrorCodes {
         sbi.lastHash = _lastHash;
         sbi.parentHash = _parentHash;
         sbi.submitter = msg.sender;
-        // sbi.timeout = now;
         sbi.status = Status.Approved;
-        //sbi.currChallenge = 0;
-        //sbi.numChallenges = 0;
 
-        emit NewSuperblock(superblockId);
+        emit NewSuperblock(superblockId, msg.sender);
 
         bestSuperblock = superblockId;
         accumulatedWork = _accumulatedWork;
 
-        emit ApprovedSuperblock(superblockId);
+        emit ApprovedSuperblock(superblockId, msg.sender);
 
-        return (ERR_SUPERBLOCK_OK, superblockId);
+        return (ErrorCodes.ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    function proposeSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
+    function propose(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
         SuperblockInfo storage parent = superblocks[_parentHash];
 
         if (parent.status == Status.Invalid || parent.status == Status.Unitialized) {
@@ -105,20 +86,17 @@ contract Superblocks is ErrorCodes {
         sbi.lastHash = _lastHash;
         sbi.parentHash = _parentHash;
         sbi.submitter = msg.sender;
-        //sbi.timeout = now;
         sbi.status = Status.New;
-        //sbi.currChallenge = 0;
-        //sbi.numChallenges = 0;
 
-        emit NewSuperblock(superblockId);
+        emit NewSuperblock(superblockId, msg.sender);
 
-        return (ERR_SUPERBLOCK_OK, superblockId);
+        return (ErrorCodes.ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    function confirmSuperblock(bytes32 superblockId) public returns (uint) {
+    function confirm(bytes32 superblockId) public returns (uint) {
         //TODO: verify authorised msg.sender
         SuperblockInfo storage sbi = superblocks[superblockId];
-        if (sbi.status != Status.New) {
+        if (sbi.status != Status.New && sbi.status != Status.SemiApproved) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
             return ERR_SUPERBLOCK_BAD_STATUS;
         }
@@ -127,61 +105,43 @@ contract Superblocks is ErrorCodes {
             bestSuperblock = superblockId;
             accumulatedWork = sbi.accumulatedWork;
         }
-        emit ApprovedSuperblock(superblockId);
+        emit ApprovedSuperblock(superblockId, msg.sender);
         return ERR_SUPERBLOCK_OK;
     }
 
-    function challengeSuperblock(bytes32 superblockId) public returns (uint) {
+    function challenge(bytes32 superblockId) public returns (uint) {
         SuperblockInfo storage sbi = superblocks[superblockId];
-
         // We can challenge new superblocks or blocks being challenged
         if (sbi.status != Status.New && sbi.status != Status.InBattle) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
             return ERR_SUPERBLOCK_BAD_STATUS;
         }
-
         sbi.status = Status.InBattle;
-
-        /* bytes32 challengeId = bytes32(++numChallenges);
-        sbi.numChallenges++;
-
-        ChallengeInfo storage ci = challenges[challengeId];
-
-        ci.challenger = msg.sender;
-        ci.submitter = sbi.submitter;
-        ci.superblockId = superblockId; */
-
         emit ChallengeSuperblock(superblockId, msg.sender);
-
         return ERR_SUPERBLOCK_OK;
     }
 
-    /* function sendHashes(bytes32 challengeId, bytes32[] hashes) public {
-        ChallengeInfo storage ci = challenges[challengeId];
-        SuperblockInfo storage sbi = superblocks[ci.superblockId];
-        require(sbi.submitter == msg.sender);
-        if (VerifyMerkleRoot(sbi, hashes)) {
-            sbi.status = Status.Invalid;
-            // Send deposit to challenger
-            ErrorSuperblock(ci.superblockId, ERR_SUPERBLOCK_INVALID_MERKLE);
-        } else {
-
+    function semiApprove(bytes32 superblockId) public returns (uint) {
+        SuperblockInfo storage sbi = superblocks[superblockId];
+        if (sbi.status != Status.InBattle) {
+            emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
+            return ERR_SUPERBLOCK_BAD_STATUS;
         }
-    } */
-
-    /* function response(bytes32 challengeId, uint what, bytes data) public {
-
+        sbi.status = Status.SemiApproved;
+        emit SemiApprovedSuperblock(superblockId, msg.sender);
+        return ERR_SUPERBLOCK_OK;
     }
 
-    function query(bytes32 challengeId, uint what) public {
-
+    function invalidate(bytes32 superblockId) public returns (uint) {
+        SuperblockInfo storage sbi = superblocks[superblockId];
+        if (sbi.status != Status.InBattle && sbi.status != Status.SemiApproved) {
+            emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
+            return ERR_SUPERBLOCK_BAD_STATUS;
+        }
+        sbi.status = Status.Invalid;
+        emit InvalidSuperblock(superblockId, msg.sender);
+        return ERR_SUPERBLOCK_OK;
     }
-
-    function VerifyMerkleRoot(SuperblockInfo storage sbi, bytes32[] hashes) internal returns (bool) {
-        return false;
-    } */
-
-    // Getters
 
     function getBestSuperblock() public view returns (bytes32) {
         return bestSuperblock;

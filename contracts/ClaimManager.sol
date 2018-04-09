@@ -120,13 +120,13 @@ contract ClaimManager is DepositsManager, Superblocks {
 
         if (deposits[_submitter] < minDeposit) {
             // Minimal DEposit FailED
-            return 1;
+            return ERR_SUPERBLOCK_MIN_DEPOSIT;
         }
 
 
         uint err;
         bytes32 superblockId;
-        (err, superblockId) = proposeSuperblock(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
+        (err, superblockId) = propose(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
         if (err != 0) {
             return err;
         }

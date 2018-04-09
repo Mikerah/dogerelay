@@ -9,4 +9,6 @@ contract ErrorCodes {
   uint constant ERR_SUPERBLOCK_TIMEOUT = 50030;
   uint constant ERR_SUPERBLOCK_INVALID_MERKLE = 50040;
   uint constant ERR_SUPERBLOCK_BAD_PARENT = 50050;
+
+  uint constant ERR_SUPERBLOCK_MIN_DEPOSIT = 50060;
 }

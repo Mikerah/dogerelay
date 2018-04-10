@@ -64,17 +64,13 @@ contract Superblocks is ErrorCodes {
 
     function propose(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
         SuperblockInfo storage parent = superblocks[_parentHash];
-
-        if (parent.status == Status.Invalid || parent.status == Status.Unitialized) {
+        if (parent.status != Status.SemiApproved && parent.status != Status.Approved) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_PARENT);
             return (ERR_SUPERBLOCK_BAD_PARENT, 0);
         }
 
         bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
-
         SuperblockInfo storage sbi = superblocks[superblockId];
-
-        // Make sure it was not submitted
         if (sbi.status != Status.Unitialized) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_EXIST);
             return (ERR_SUPERBLOCK_EXIST, 0);
@@ -93,12 +89,18 @@ contract Superblocks is ErrorCodes {
         return (ErrorCodes.ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    function confirm(bytes32 superblockId) public returns (uint) {
+    function confirm(bytes32 superblockId) public returns (uint, bytes32) {
         //TODO: verify authorised msg.sender
         SuperblockInfo storage sbi = superblocks[superblockId];
         if (sbi.status != Status.New && sbi.status != Status.SemiApproved) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
-            return ERR_SUPERBLOCK_BAD_STATUS;
+            return (ERR_SUPERBLOCK_BAD_STATUS, 0);
+        }
+        // Parent must be approved
+        SuperblockInfo storage parent = superblocks[sbi.parentHash];
+        if (parent.status != Status.Approved) {
+            emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_PARENT);
+            return (ERR_SUPERBLOCK_BAD_PARENT, 0);
         }
         sbi.status = Status.Approved;
         if (sbi.accumulatedWork > accumulatedWork) {
@@ -106,7 +108,7 @@ contract Superblocks is ErrorCodes {
             accumulatedWork = sbi.accumulatedWork;
         }
         emit ApprovedSuperblock(superblockId, msg.sender);
-        return ERR_SUPERBLOCK_OK;
+        return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
     function challenge(bytes32 superblockId) public returns (uint) {

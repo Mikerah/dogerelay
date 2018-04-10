@@ -13,15 +13,15 @@ contract ClaimManager is DepositsManager, Superblocks {
     // default initial amount of blocks for challenge timeout
     uint public defaultChallengeTimeout = 5;
 
-    event DepositBonded(uint claimID, address account, uint amount);
-    event DepositUnbonded(uint claimID, address account, uint amount);
+    event DepositBonded(bytes32 claimID, address account, uint amount);
+    event DepositUnbonded(bytes32 claimID, address account, uint amount);
     //event ClaimCreated(uint claimID, address claimant, bytes plaintext, bytes blockHash);
-    event ClaimCreated(uint claimID, address claimant, bytes32 superblockId);
-    event ClaimChallenged(uint claimID, address challenger);
-    event SessionDecided(uint sessionId, address winner, address loser);
-    event ClaimSuccessful(uint claimID, address claimant, bytes32 superblockId);
-    event ClaimFailed(uint claimID, address claimant, bytes32 superblockId);
-    event VerificationGameStarted(uint claimID, address claimant, address challenger, uint sessionId);//Rename to SessionStarted?
+    event ClaimCreated(bytes32 claimID, address claimant, bytes32 superblockId);
+    event ClaimChallenged(bytes32 claimID, address challenger);
+    event SessionDecided(bytes32 sessionId, address winner, address loser);
+    event ClaimSuccessful(bytes32 claimID, address claimant, bytes32 superblockId);
+    event ClaimFailed(bytes32 claimID, address claimant, bytes32 superblockId);
+    event VerificationGameStarted(bytes32 claimID, address claimant, address challenger, uint sessionId);//Rename to SessionStarted?
     //event ClaimVerificationGamesEnded(uint claimID);
 
     struct SuperblockClaim {
@@ -43,7 +43,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     }
 
   //  mapping(address => uint) public claimantClaims;
-    mapping(uint => SuperblockClaim) private claims;
+    mapping(bytes32 => SuperblockClaim) private claims;
 
     modifier onlyBy(address _account) {
         require(msg.sender == _account);
@@ -59,7 +59,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param account – the user's address.
     // @param amount – the amount of deposit to lock up.
     // @return – the user's deposit bonded for the claim.
-    function bondDeposit(uint claimID, address account, uint amount) private returns (uint) {
+    function bondDeposit(bytes32 claimID, address account, uint amount) private returns (uint) {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -75,7 +75,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param claimID – the claim id.
     // @param account – the user's address.
     // @return – the user's deposit bonded for the claim.
-    function getBondedDeposit(uint claimID, address account) public view returns (uint) {
+    function getBondedDeposit(bytes32 claimID, address account) public view returns (uint) {
         SuperblockClaim storage claim = claims[claimID];
         require(claimExists(claim));
         return claim.bondedDeposits[account];
@@ -85,7 +85,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param claimID – the claim id.
     // @param account – the user's address.
     // @return – the user's deposit which was unbonded from the claim.
-    function unbondDeposit(uint claimID, address account) public returns (uint) {
+    function unbondDeposit(bytes32 claimID, address account) public returns (uint) {
         SuperblockClaim storage claim = claims[claimID];
         require(claimExists(claim));
         require(claim.decided == true);
@@ -109,49 +109,36 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param _plaintext – the plaintext blockHeader.
     // @param _blockHash – the blockHash.
     // @param claimant – the address of the Dogecoin block submitter.
-    function checkSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public payable returns (uint) {
-        // dogeRelay can directly make a deposit on behalf of the claimant.
-
+    function checkSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
         address _submitter = msg.sender;
-        if (msg.value != 0) {
-            // only call if eth is included (to save gas)
-            increaseDeposit(_submitter, msg.value);
-        }
 
         if (deposits[_submitter] < minDeposit) {
-            // Minimal DEposit FailED
-            return ERR_SUPERBLOCK_MIN_DEPOSIT;
+            return (ERR_SUPERBLOCK_MIN_DEPOSIT, 0);
         }
-
 
         uint err;
         bytes32 superblockId;
         (err, superblockId) = propose(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
         if (err != 0) {
-            return err;
+            return (err, superblockId);
         }
 
-
-        // bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
-
-        uint claimId = uint(superblockId);
+        bytes32 claimId = superblockId;
         require(!claimExists(claims[claimId]));
 
         SuperblockClaim storage claim = claims[claimId];
         claim.claimant = _submitter;
-        //claim.plaintext = _data;
-        //claim.blockHash = _blockHash;
         claim.numChallengers = 0;
         claim.currentChallenger = 0;
+        claim.decided = false;
         claim.verificationOngoing = false;
         claim.createdAt = block.number;
-        claim.decided = false;
-        //claim.proposalId = _proposalId;
-        //claim.scryptDependent = _scryptDependent;
         claim.superblockId = superblockId;
 
         bondDeposit(claimId, claim.claimant, minDeposit);
-        emit ClaimCreated(claimId, claim.claimant, superblockId); // claim.plaintext, claim.blockHash);
+        emit ClaimCreated(claimId, claim.claimant, superblockId);
+
+        return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
     // @dev – challenge an existing Scrypt claim.
@@ -159,7 +146,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // where the claimant & the challenger will immediately begin playing a verification.
     //
     // @param claimID – the claim ID.
-    function challengeClaim(uint claimID) public {
+    function challengeClaim(bytes32 claimID) public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -182,7 +169,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @dev – runs a verification game between the claimant and
     // the next queued-up challenger.
     // @param claimID – the claim id.
-    function runNextVerificationGame(uint claimID) public {
+    function runNextVerificationGame(bytes32 claimID) public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -213,7 +200,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param sessionId – the sessionId.
     // @param winner – winner of the verification game.
     // @param loser – loser of the verification game.
-    function sessionDecided(uint sessionId, uint claimID, address winner, address loser) /* onlyBy(address(scryptVerifier)) */ public {
+    function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) /* onlyBy(address(scryptVerifier)) */ public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -250,7 +237,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // notifying it that the Scrypt blockhash was correctly calculated.
     //
     // @param claimID – the claim ID.
-    function checkClaimFinished(uint claimID) public {
+    function checkClaimFinished(bytes32 claimID) public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -280,31 +267,31 @@ contract ClaimManager is DepositsManager, Superblocks {
         return claim.claimant != 0x0;
     }
 
-    function firstChallenger(uint claimID) public view returns(address) {
+    /* function firstChallenger(bytes32 claimID) public view returns(address) {
         require(claimID < numClaims);
         return claims[claimID].challengers[0];
     }
 
-    function createdAt(uint claimID) public view returns(uint) {
+    function createdAt(bytes32 claimID) public view returns(uint) {
         //require(claimID < numClaims);
         return claims[claimID].createdAt;
     }
 
-    function getSession(uint claimID, address challenger) public view returns(uint) {
+    function getSession(bytes32 claimID, address challenger) public view returns(uint) {
         return claims[claimID].sessions[challenger];
     }
 
-    function getChallengers(uint claimID) public view returns(address[]) {
+    function getChallengers(bytes32 claimID) public view returns(address[]) {
         return claims[claimID].challengers;
     }
 
-    function getCurrentChallenger(uint claimID) public view returns(address) {
+    function getCurrentChallenger(bytes32 claimID) public view returns(address) {
         return claims[claimID].challengers[claims[claimID].currentChallenger];
     }
 
-    function getVerificationOngoing(uint claimID) public view returns(bool) {
+    function getVerificationOngoing(bytes32 claimID) public view returns(bool) {
         return claims[claimID].verificationOngoing;
-    }
+    } */
 
     /* function getClaim(uint claimID)
         public

@@ -14,6 +14,17 @@ contract('ClaimManager', (accounts) => {
     assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
     id0 = result.logs[0].args.superblockId;
   });
+  it('Deposit', async () => {
+    const result = await claimManager.makeDeposit({ value: 1 });
+    assert.equal(result.logs[0].event, 'DepositMade', 'Deposit made');
+    // id0 = result.logs[0].args.superblockId;
+  });
+  it('Propose', async () => {
+    const result = await claimManager.checkSuperblock("0x01", "0x02", "0x03", "0x04", id0);
+    // console.log(JSON.stringify(result, null, '  '));
+    assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
+    id1 = result.logs[0].args.superblockId;
+  });
   /* it('Propose', async () => {
     const result = await claimManager.proposeSuperblock("0x01", "0x02", "0x03", "0x04", id0);
     // console.log(JSON.stringify(result, null, '  '));

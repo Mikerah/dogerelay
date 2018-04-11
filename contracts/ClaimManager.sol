@@ -2,11 +2,12 @@ pragma solidity ^0.4.0;
 
 import {DepositsManager} from './DepositsManager.sol';
 import {Superblocks} from './Superblocks.sol';
+import {BattleManager} from './BattleManager.sol';
 
 
 // ClaimManager: queues a sequence of challengers to play with a claimant.
 
-contract ClaimManager is DepositsManager, Superblocks {
+contract ClaimManager is DepositsManager, Superblocks, BattleManager {
     uint private numClaims = 1;     // index as key for the claims mapping.
     uint public minDeposit = 1;    // TODO: what should the minimum deposit be?
 
@@ -21,7 +22,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     event SessionDecided(bytes32 sessionId, address winner, address loser);
     event ClaimSuccessful(bytes32 claimID, address claimant, bytes32 superblockId);
     event ClaimFailed(bytes32 claimID, address claimant, bytes32 superblockId);
-    event VerificationGameStarted(bytes32 claimID, address claimant, address challenger, uint sessionId);//Rename to SessionStarted?
+    event VerificationGameStarted(bytes32 claimID, address claimant, address challenger, bytes32 sessionId);//Rename to SessionStarted?
     //event ClaimVerificationGamesEnded(uint claimID);
 
     struct SuperblockClaim {
@@ -30,7 +31,7 @@ contract ClaimManager is DepositsManager, Superblocks {
         //bytes blockHash;    // the Dogecoin blockhash.
         uint createdAt;     // the block number at which the claim was created.
         address[] challengers;      // all current challengers.
-        mapping(address => uint) sessions; //map challengers to sessionId's
+        mapping(address => bytes32) sessions; //map challengers to sessionId's
         uint numChallengers; // is number of challengers always same as challengers.length ?
         uint currentChallenger;    // index of next challenger to play a verification game.
         bool verificationOngoing;   // is the claim waiting for results from an ongoing verificationg game.
@@ -109,7 +110,7 @@ contract ClaimManager is DepositsManager, Superblocks {
     // @param _plaintext – the plaintext blockHeader.
     // @param _blockHash – the blockHash.
     // @param claimant – the address of the Dogecoin block submitter.
-    function checkSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
+    function proposeSuperblock(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
         address _submitter = msg.sender;
 
         if (deposits[_submitter] < minDeposit) {
@@ -146,7 +147,8 @@ contract ClaimManager is DepositsManager, Superblocks {
     // where the claimant & the challenger will immediately begin playing a verification.
     //
     // @param claimID – the claim ID.
-    function challengeClaim(bytes32 claimID) public {
+    function challengeSuperblock(bytes32 superblockId) public returns (uint, bytes32) {
+        bytes32 claimID = superblockId;
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -156,10 +158,18 @@ contract ClaimManager is DepositsManager, Superblocks {
         require(deposits[msg.sender] >= minDeposit);
         bondDeposit(claimID, msg.sender, minDeposit);
 
+        uint err;
+        (err, ) = challenge(superblockId);
+        if (err != 0) {
+            return (err, 0);
+        }
+
         claim.challengeTimeoutBlockNumber += defaultChallengeTimeout;
         claim.challengers.push(msg.sender);
         claim.numChallengers += 1;
         emit ClaimChallenged(claimID, msg.sender);
+
+        return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
     function createNewSession() internal returns (uint) {
@@ -182,7 +192,7 @@ contract ClaimManager is DepositsManager, Superblocks {
 
             // kick off a verification game.
             // uint sessionId = scryptVerifier.claimComputation(claimID, claim.challengers[claim.currentChallenger], claim.claimant, claim.plaintext, claim.blockHash, 2049);
-            uint sessionId = createNewSession();
+            bytes32 sessionId = beginBattleSession(claimID, claim.challengers[claim.currentChallenger], claim.claimant);
 
             claim.sessions[claim.challengers[claim.currentChallenger]] = sessionId;
             emit VerificationGameStarted(claimID, claim.claimant, claim.challengers[claim.currentChallenger], sessionId);

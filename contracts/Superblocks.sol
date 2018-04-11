@@ -111,16 +111,16 @@ contract Superblocks is ErrorCodes {
         return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    function challenge(bytes32 superblockId) public returns (uint) {
+    function challenge(bytes32 superblockId) public returns (uint, bytes32) {
         SuperblockInfo storage sbi = superblocks[superblockId];
         // We can challenge new superblocks or blocks being challenged
         if (sbi.status != Status.New && sbi.status != Status.InBattle) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_STATUS);
-            return ERR_SUPERBLOCK_BAD_STATUS;
+            return (ERR_SUPERBLOCK_BAD_STATUS, 0);
         }
         sbi.status = Status.InBattle;
         emit ChallengeSuperblock(superblockId, msg.sender);
-        return ERR_SUPERBLOCK_OK;
+        return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
     function semiApprove(bytes32 superblockId) public returns (uint) {

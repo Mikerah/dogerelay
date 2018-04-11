@@ -6,49 +6,42 @@ contract('ClaimManager', (accounts) => {
   let id0;
   let id1;
   let id2;
+  let claimId1;
+  let sessionId1;
+  const owner = accounts[0];
+  const submitter = accounts[1];
+  const challenger = accounts[2];
   before(async () => {
     claimManager = await ClaimManager.deployed();
   });
   it('Initialized', async () => {
-    const result = await claimManager.initialize("0x01", "0x02", "0x03", "0x04", "0x00");
+    const result = await claimManager.initialize("0x01", "0x02", "0x03", "0x04", "0x00", { from: owner });
     assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
     id0 = result.logs[0].args.superblockId;
   });
   it('Deposit', async () => {
-    const result = await claimManager.makeDeposit({ value: 1 });
-    assert.equal(result.logs[0].event, 'DepositMade', 'Deposit made');
-    // id0 = result.logs[0].args.superblockId;
+    let result = await claimManager.makeDeposit({ value: 10, from: submitter });
+    assert.equal(result.logs[0].event, 'DepositMade', 'Submitter deposit made');
+    result = await claimManager.makeDeposit({ value: 10, from: challenger });
+    assert.equal(result.logs[0].event, 'DepositMade', 'Challenger deposit made');
   });
   it('Propose', async () => {
-    const result = await claimManager.checkSuperblock("0x01", "0x02", "0x03", "0x04", id0);
-    // console.log(JSON.stringify(result, null, '  '));
+    const best = await claimManager.getBestSuperblock();
+    assert.equal(id0, best, 'Best superblock should match');
+    const result = await claimManager.proposeSuperblock("0x01", "0x02", "0x03", "0x04", id0, { from: submitter });
     assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
     id1 = result.logs[0].args.superblockId;
-  });
-  /* it('Propose', async () => {
-    const result = await claimManager.proposeSuperblock("0x01", "0x02", "0x03", "0x04", id0);
-    // console.log(JSON.stringify(result, null, '  '));
-    assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
-    id1 = result.logs[0].args.superblockId;
-  });
-  it('Bad propose', async () => {
-    const result = await claimManager.proposeSuperblock("0x01", "0x02", "0x03", "0x04", id0);
-    assert.equal(result.logs[0].event, 'ErrorSuperblock', 'Superblock already exists');
-  });
-  it('Approve', async () => {
-    const result = await claimManager.confirmSuperblock(id1);
-    // console.log(JSON.stringify(result, null, '  '));
-    assert.equal(result.logs[0].event, 'ApprovedSuperblock', 'Superblock confirmed');
-  });
-  it('Propose bis', async () => {
-    const result = await claimManager.proposeSuperblock("0x01", "0x02", "0x03", "0x04", id1);
-    assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
-    id2 = result.logs[0].args.superblockId;
   });
   it('Challenge', async () => {
-    const result = await claimManager.challengeSuperblock(id2);
+    const result = await claimManager.challengeSuperblock(id1, { from: challenger });
     // console.log(JSON.stringify(result, null, '  '));
-    assert.equal(result.logs[0].event, 'ChallengeSuperblock', 'Superblock challenged');
-    id2 = result.logs[0].args.superblockId;
-  }); */
+    assert.equal(result.logs[2].event, 'ClaimChallenged', 'Superblock challenged');
+    claimId1 = result.logs[2].args.claimID;
+  });
+  it('Start Battle', async () => {
+    const result = await claimManager.runNextVerificationGame(claimId1, { from: challenger });
+    //console.log(JSON.stringify(result, null, '  '));
+    assert.equal(result.logs[1].event, 'VerificationGameStarted', 'Verification battle started');
+    sessionId1 = result.logs[1].args.sessionId;
+  });
 });

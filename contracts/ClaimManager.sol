@@ -101,10 +101,6 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         return bondedDeposit;
     }
 
-    /* function calcId(bytes, bytes32 _hash, address claimant, bytes32 _proposalId) public pure returns (uint) {
-        return uint(keccak256(claimant, _hash, _proposalId));
-    } */
-
     // @dev – check whether a DogeCoin blockHash was calculated correctly from the plaintext block header.
     // only callable by the DogeRelay contract.
     // @param _plaintext – the plaintext blockHeader.
@@ -172,10 +168,6 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         return (ERR_SUPERBLOCK_OK, superblockId);
     }
 
-    function createNewSession() internal returns (uint) {
-        return 123;
-    }
-
     // @dev – runs a verification game between the claimant and
     // the next queued-up challenger.
     // @param claimID – the claim id.
@@ -210,7 +202,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
     // @param sessionId – the sessionId.
     // @param winner – winner of the verification game.
     // @param loser – loser of the verification game.
-    function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) /* onlyBy(address(scryptVerifier)) */ public {
+    /* function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) onlyBy(address(scryptVerifier)) public {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -240,7 +232,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         }
 
         emit SessionDecided(sessionId, winner, loser);
-    }
+    } */
 
     // @dev – check whether a claim has successfully withstood all challenges.
     // if successful, it will trigger a callback to the DogeRelay contract,
@@ -285,13 +277,13 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
     function createdAt(bytes32 claimID) public view returns(uint) {
         //require(claimID < numClaims);
         return claims[claimID].createdAt;
-    }
+    } */
 
-    function getSession(bytes32 claimID, address challenger) public view returns(uint) {
+    function getSession(bytes32 claimID, address challenger) public view returns(bytes32) {
         return claims[claimID].sessions[challenger];
     }
 
-    function getChallengers(bytes32 claimID) public view returns(address[]) {
+    /* function getChallengers(bytes32 claimID) public view returns(address[]) {
         return claims[claimID].challengers;
     }
 

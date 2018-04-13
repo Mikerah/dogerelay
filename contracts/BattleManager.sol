@@ -74,5 +74,20 @@ contract BattleManager {
         return sessionId;
     }
 
+    function query(bytes32 sessionId, uint step)
+        onlyChallenger(sessionId)
+        public
+    {
+        BattleSession storage s = sessions[sessionId];
+        emit NewQuery(sessionId, s.claimant);
+    }
+
+    function respond(bytes32 sessionId, uint step, bytes32 hash)
+        onlyClaimant(sessionId)
+        public
+    {
+        BattleSession storage s = sessions[sessionId];
+        emit NewResponse(sessionId, s.challenger);
+    }
 
 }

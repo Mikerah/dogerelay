@@ -49,7 +49,7 @@ contract('ClaimManager', (accounts) => {
       const session = await claimManager.getSession(claimId1, challenger);
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(session, sessionId1, 'Sessions should match');
-      claimManager.query(sessionId1, { from: challenger });
+      await claimManager.query(sessionId1, 0, { from: challenger });
     });
   });
 });

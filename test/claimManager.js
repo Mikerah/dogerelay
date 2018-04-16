@@ -1,3 +1,4 @@
+const utils = require('./utils');
 const ClaimManager = artifacts.require('ClaimManager');
 
 
@@ -11,6 +12,8 @@ contract('ClaimManager', (accounts) => {
   const owner = accounts[0];
   const submitter = accounts[1];
   const challenger = accounts[2];
+  const hashes = [];
+  const rootHash = utils.makeMerkle(hashes);
   describe('Session', () => {
     before(async () => {
       claimManager = await ClaimManager.deployed();
@@ -21,9 +24,10 @@ contract('ClaimManager', (accounts) => {
       id0 = result.logs[0].args.superblockId;
     });
     it('Deposit', async () => {
+      //FIXME: ganache-cli creates the same transaction hash if two send the same amount
       let result = await claimManager.makeDeposit({ value: 10, from: submitter });
       assert.equal(result.logs[0].event, 'DepositMade', 'Submitter deposit made');
-      result = await claimManager.makeDeposit({ value: 10, from: challenger });
+      result = await claimManager.makeDeposit({ value: 11, from: challenger });
       assert.equal(result.logs[0].event, 'DepositMade', 'Challenger deposit made');
     });
     it('Propose', async () => {
@@ -50,6 +54,7 @@ contract('ClaimManager', (accounts) => {
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(session, sessionId1, 'Sessions should match');
       await claimManager.query(sessionId1, 0, { from: challenger });
+
     });
   });
 });

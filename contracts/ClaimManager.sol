@@ -202,7 +202,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
     // @param sessionId – the sessionId.
     // @param winner – winner of the verification game.
     // @param loser – loser of the verification game.
-    /* function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) onlyBy(address(scryptVerifier)) public {
+    function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) internal {
         SuperblockClaim storage claim = claims[claimID];
 
         require(claimExists(claim));
@@ -232,7 +232,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         }
 
         emit SessionDecided(sessionId, winner, loser);
-    } */
+    }
 
     // @dev – check whether a claim has successfully withstood all challenges.
     // if successful, it will trigger a callback to the DogeRelay contract,

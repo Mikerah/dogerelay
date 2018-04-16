@@ -17,8 +17,8 @@ contract BattleManager {
         address challenger;
         //bytes input;
         //bytes output;
-        //uint lastClaimantMessage;
-        //uint lastChallengerMessage;
+        uint lastClaimantMessage;
+        uint lastChallengerMessage;
         //uint lowStep;
         //bytes32 lowHash;
         //uint medStep;
@@ -58,8 +58,8 @@ contract BattleManager {
         s.challenger = challenger;
         // s.input = _input;
         //s.output = _output;
-        //s.lastClaimantMessage = now;
-        //s.lastChallengerMessage = now;
+        s.lastClaimantMessage = now;
+        s.lastChallengerMessage = now;
         //s.lowStep = 0;
         //s.lowHash = keccak256(_input);
         //s.medStep = 0;
@@ -79,6 +79,7 @@ contract BattleManager {
         public
     {
         BattleSession storage s = sessions[sessionId];
+        s.lastChallengerMessage = now;
         emit NewQuery(sessionId, s.claimant);
     }
 
@@ -87,7 +88,54 @@ contract BattleManager {
         public
     {
         BattleSession storage s = sessions[sessionId];
+        s.lastClaimantMessage = now;
         emit NewResponse(sessionId, s.challenger);
     }
 
+    //Able to trigger conviction if time of response is too high
+    function timeout(bytes32 sessionId, bytes32 claimID)
+        public
+    {
+        BattleSession storage session = sessions[sessionId];
+        require(session.claimant != 0);
+        if (
+            session.lastChallengerMessage > session.lastClaimantMessage &&
+            now > session.lastChallengerMessage + responseTime
+        ) {
+            claimantConvicted(sessionId, session.claimant, claimID);
+        } else if (
+            session.lastClaimantMessage > session.lastChallengerMessage &&
+            now > session.lastClaimantMessage + responseTime
+        ) {
+            challengerConvicted(sessionId, session.challenger, claimID);
+        } else {
+            require(false);
+        }
+    }
+
+    function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) internal;
+
+    function challengerConvicted(bytes32 sessionId, address challenger, bytes32 claimID)
+        internal
+    {
+        BattleSession storage s = sessions[sessionId];
+        sessionDecided(sessionId, claimID, s.claimant, s.challenger);
+        disable(sessionId);
+        emit ChallengerConvicted(sessionId, challenger);
+    }
+
+    function claimantConvicted(bytes32 sessionId, address claimant, bytes32 claimID)
+        internal
+    {
+        BattleSession storage s = sessions[sessionId];
+        sessionDecided(sessionId, claimID, s.challenger, s.claimant);
+        disable(sessionId);
+        emit ClaimantConvicted(sessionId, claimant);
+    }
+
+    function disable(bytes32 sessionId)
+        internal
+    {
+        delete sessions[sessionId];
+    }
 }

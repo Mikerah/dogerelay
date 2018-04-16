@@ -1,7 +1,8 @@
-var fs = require('fs');
-var readline = require('readline');
-var btcProof = require('bitcoin-proof');
-var scryptsy = require('scryptsy');
+const fs = require('fs');
+const readline = require('readline');
+const btcProof = require('bitcoin-proof');
+const scryptsy = require('scryptsy');
+const keccak256 = require('js-sha3').keccak256;
 
 const SEND_BATCH = true;
 
@@ -22,6 +23,10 @@ async function parseDataFile(filename) {
     });
   });
 };
+
+function makeMerkle(hashes) {
+  return keccak256('');
+}
 
 
 module.exports = {
@@ -116,5 +121,6 @@ module.exports = {
       output.push(element.toNumber());
     });
     return output;
-  }
+  },
+  makeMerkle,
 };

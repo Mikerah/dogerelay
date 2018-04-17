@@ -16,35 +16,40 @@ contract('Superblocks', (accounts) => {
     let hash;
     it('Make merkle', async () => {
       hash = await superblocks.makeMerkle([]);
-      assert.equal(utils.remove0x(hash), utils.makeMerkle([]), 'Empty array');
+      assert.equal(hash, utils.makeMerkle([]), 'Empty array');
       const twoArray = ['0x0000000000000000000000000000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000000000000000000000000000002'];
       hash = await superblocks.makeMerkle(twoArray);
-      assert.equal(utils.remove0x(hash), utils.makeMerkle(twoArray), 'Two items array');
+      assert.equal(hash, utils.makeMerkle(twoArray), 'Two items array');
       const threeArray = ['0x0000000000000000000000000000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000000000000000000000000000002', '0x0000000000000000000000000000000000000000000000000000000000000003'];
       hash = await superblocks.makeMerkle(threeArray);
-      assert.equal(utils.remove0x(hash), utils.makeMerkle(threeArray), 'Two items array');
+      assert.equal(hash, utils.makeMerkle(threeArray), 'Two items array');
       const hashes = [];
       for (let i=0; i<15; i++) {
         hashes.push(`0x${crypto.randomBytes(32).toString('hex')}`);
       }
       hash = await superblocks.makeMerkle(hashes);
-      assert.equal(utils.remove0x(hash), utils.makeMerkle(hashes), 'Fifteen items array');
+      assert.equal(hash, utils.makeMerkle(hashes), 'Fifteen items array');
     });
   });
   describe('Statuses', () => {
+    const merkleRoot = utils.makeMerkle([]);
+    const accumulatedWork = 0;
+    const timestamp = (new Date()).getTime() / 1000;
+    const lastHash = '0x00';
+    const parentHash = '0x00';
     it('Initialized', async () => {
-      const result = await superblocks.initialize("0x01", "0x02", "0x03", "0x04", "0x00");
+      const result = await superblocks.initialize(merkleRoot, accumulatedWork, timestamp, lastHash, parentHash);
       assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
       id0 = result.logs[0].args.superblockId;
     });
     it('Propose', async () => {
-      const result = await superblocks.propose("0x01", "0x02", "0x03", "0x04", id0);
+      const result = await superblocks.propose(merkleRoot, accumulatedWork, timestamp, lastHash, id0);
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
       id1 = result.logs[0].args.superblockId;
     });
     it('Bad propose', async () => {
-      const result = await superblocks.propose("0x01", "0x02", "0x03", "0x04", id0);
+      const result = await superblocks.propose(merkleRoot, accumulatedWork, timestamp, lastHash, id0);
       assert.equal(result.logs[0].event, 'ErrorSuperblock', 'Superblock already exists');
     });
     it('Approve', async () => {
@@ -53,7 +58,7 @@ contract('Superblocks', (accounts) => {
       assert.equal(result.logs[0].event, 'ApprovedSuperblock', 'Superblock confirmed');
     });
     it('Propose bis', async () => {
-      const result = await superblocks.propose("0x01", "0x02", "0x03", "0x04", id1);
+      const result = await superblocks.propose(merkleRoot, accumulatedWork, timestamp, lastHash, id1);
       assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
       id2 = result.logs[0].args.superblockId;
     });
@@ -78,7 +83,7 @@ contract('Superblocks', (accounts) => {
       // id2 = result.logs[0].args.superblockId;
     });
     it('Propose tris', async () => {
-      const result = await superblocks.propose("0x01", "0x02", "0x03", "0x04", id2);
+      const result = await superblocks.propose(merkleRoot, accumulatedWork, timestamp, lastHash, id2);
       assert.equal(result.logs[0].event, 'NewSuperblock', 'New superblock proposed');
       id3 = result.logs[0].args.superblockId;
     });

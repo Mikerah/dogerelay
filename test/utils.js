@@ -26,7 +26,7 @@ async function parseDataFile(filename) {
 
 function makeMerkle(hashes) {
   if (hashes.length == 0) {
-    return keccak256('');
+    return `0x${keccak256('')}`;
   }
   while (hashes.length > 1) {
     const newhashes = [];
@@ -36,7 +36,7 @@ function makeMerkle(hashes) {
     }
     hashes = newhashes;
   }
-  return hashes[0];
+  return `0x${module.exports.formatHexUint32(module.exports.remove0x(hashes[0]))}`;
 }
 
 

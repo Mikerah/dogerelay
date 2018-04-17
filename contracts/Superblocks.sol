@@ -37,6 +37,7 @@ contract Superblocks is ErrorCodes {
     }
 
     function initialize(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
+        //require(_parentHash == bytes32(0));
         bytes32 superblockId = keccak256(_blocksMerkleRoot, _accumulatedWork, _timestamp, _lastHash, _parentHash);
 
         SuperblockInfo storage sbi = superblocks[superblockId];
@@ -63,7 +64,9 @@ contract Superblocks is ErrorCodes {
     }
 
     function propose(bytes32 _blocksMerkleRoot, uint _accumulatedWork, uint _timestamp, bytes32 _lastHash, bytes32 _parentHash) public returns (uint, bytes32) {
+        //log4(_blocksMerkleRoot, bytes32(_accumulatedWork), bytes32(_timestamp), _lastHash, _parentHash);
         SuperblockInfo storage parent = superblocks[_parentHash];
+        //log1(_parentHash, bytes32(uint(parent.status)));
         if (parent.status != Status.SemiApproved && parent.status != Status.Approved) {
             emit ErrorSuperblock(superblockId, ERR_SUPERBLOCK_BAD_PARENT);
             return (ERR_SUPERBLOCK_BAD_PARENT, 0);

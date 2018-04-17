@@ -25,7 +25,18 @@ async function parseDataFile(filename) {
 };
 
 function makeMerkle(hashes) {
-  return keccak256('');
+  if (hashes.length == 0) {
+    return keccak256('');
+  }
+  while (hashes.length > 1) {
+    const newhashes = [];
+    for (let i=0; i< hashes.length; i+=2) {
+      const j = i+1 < hashes.length ? i+1 : hashes.length-1;
+      newhashes.push(keccak256(Buffer.from(`${module.exports.formatHexUint32(module.exports.remove0x(hashes[i]))}${module.exports.formatHexUint32(module.exports.remove0x(hashes[j]))}`, 'hex')));
+    }
+    hashes = newhashes;
+  }
+  return hashes[0];
 }
 
 

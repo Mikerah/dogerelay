@@ -162,5 +162,21 @@ contract Superblocks is ErrorCodes {
             sbi.status
         );
     }
-
+    function makeMerkle(bytes32[] hashes) public pure returns (bytes32) {
+        uint length = hashes.length;
+        if (length == 0) return keccak256();
+        uint i;
+        uint j;
+        uint k;
+        while (length > 1) {
+            k = 0;
+            for (i = 0; i < length; i += 2) {
+                j = i+1<length ? i+1 : length-1;
+                hashes[k] = keccak256(hashes[i], hashes[j]);
+                k += 1;
+            }
+            length = k;
+        }
+        return hashes[0];
+    }
 }

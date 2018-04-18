@@ -50,7 +50,7 @@ contract('ClaimManager', (accounts) => {
       const result = await claimManager.challengeSuperblock(id1, { from: challenger });
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(result.logs[2].event, 'ClaimChallenged', 'Superblock challenged');
-      claimId1 = result.logs[2].args.claimID;
+      claimId1 = result.logs[2].args.claimId;
     });
     it('Start Battle', async () => {
       const result = await claimManager.runNextVerificationGame(claimId1, { from: submitter });
@@ -63,7 +63,6 @@ contract('ClaimManager', (accounts) => {
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(session, sessionId1, 'Sessions should match');
       await claimManager.query(sessionId1, 0, { from: challenger });
-
     });
   });
 });

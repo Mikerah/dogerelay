@@ -79,6 +79,12 @@ contract BattleManager {
         public
     {
         BattleSession storage s = sessions[sessionId];
+        bytes32 claimId = s.claimId;
+        // SuperblockClaim claim = claims[claimId];
+        if (step == 0) {
+
+        }
+
         s.lastChallengerMessage = now;
         emit NewQuery(sessionId, s.claimant);
     }
@@ -93,7 +99,7 @@ contract BattleManager {
     }
 
     //Able to trigger conviction if time of response is too high
-    function timeout(bytes32 sessionId, bytes32 claimID)
+    function timeout(bytes32 sessionId, bytes32 claimId)
         public
     {
         BattleSession storage session = sessions[sessionId];
@@ -102,33 +108,33 @@ contract BattleManager {
             session.lastChallengerMessage > session.lastClaimantMessage &&
             now > session.lastChallengerMessage + responseTime
         ) {
-            claimantConvicted(sessionId, session.claimant, claimID);
+            claimantConvicted(sessionId, session.claimant, claimId);
         } else if (
             session.lastClaimantMessage > session.lastChallengerMessage &&
             now > session.lastClaimantMessage + responseTime
         ) {
-            challengerConvicted(sessionId, session.challenger, claimID);
+            challengerConvicted(sessionId, session.challenger, claimId);
         } else {
             require(false);
         }
     }
 
-    function sessionDecided(bytes32 sessionId, bytes32 claimID, address winner, address loser) internal;
+    function sessionDecided(bytes32 sessionId, bytes32 claimId, address winner, address loser) internal;
 
-    function challengerConvicted(bytes32 sessionId, address challenger, bytes32 claimID)
+    function challengerConvicted(bytes32 sessionId, address challenger, bytes32 claimId)
         internal
     {
         BattleSession storage s = sessions[sessionId];
-        sessionDecided(sessionId, claimID, s.claimant, s.challenger);
+        sessionDecided(sessionId, claimId, s.claimant, s.challenger);
         disable(sessionId);
         emit ChallengerConvicted(sessionId, challenger);
     }
 
-    function claimantConvicted(bytes32 sessionId, address claimant, bytes32 claimID)
+    function claimantConvicted(bytes32 sessionId, address claimant, bytes32 claimId)
         internal
     {
         BattleSession storage s = sessions[sessionId];
-        sessionDecided(sessionId, claimID, s.challenger, s.claimant);
+        sessionDecided(sessionId, claimId, s.challenger, s.claimant);
         disable(sessionId);
         emit ClaimantConvicted(sessionId, claimant);
     }

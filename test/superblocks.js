@@ -5,33 +5,59 @@ const Superblocks = artifacts.require('Superblocks');
 
 contract('Superblocks', (accounts) => {
   let superblocks;
-  let id0;
-  let id1;
-  let id2;
-  let id3;
   before(async () => {
     superblocks = await Superblocks.deployed();
   });
   describe('Utils', () => {
     let hash;
+    const zeroHashes = [];
+    const oneHash = [
+      "0x57a8a9a8de6131bf61f5d385318c10e29a5d826eed6adbdbeedc3a0539908ed4"
+    ];
+    const twoHashes = [
+      "0x2e6e9539f02088efe5abb7082bb6e8ba8df68e1cca543af48f5cc93523bf7209",
+      "0x5db4c5556edb6dffe30eb26811327678a54f74b7a3072f2834472ea30ee17360"
+    ];
+    const threeHashes = [
+      "0x6bbe42a26ec5af04eb16da92131ddcd87df55d629d940eaa8f88c0ceb0b9ede6",
+      "0xc2213074ba6cf84780030f9dc261fa31999c039811516aaf0fb8fd1e1a9fa0c3",
+      "0xde3d260197746a0b509ffa4e05cc8b042f0a0ce472c20d75e17bf58815d395e1"
+    ];
+    const manyHashes = [
+      "0xb2d645742da1443e2439dfe1ee5901aa74680ddd2f11be203595673be5cfc396",
+      "0x75520841e64a8acdd669e453d0a55caa7082a35ec6406cf5e73b30cdf34ad0b6",
+      "0x6a4a7fdf807e56a39ca842d3e3807e6639af4cf1d05cf6da6154a0b5170f7690",
+      "0xde3d260197746a0b509ffa4e05cc8b042f0a0ce472c20d75e17bf58815d395e1",
+      "0x6bbe42a26ec5af04eb16da92131ddcd87df55d629d940eaa8f88c0ceb0b9ede6",
+      "0x50ab8816b4a1ffa5700ff26bb1fbacce5e3cb93978e57410cfabbe8819a45a4e",
+      "0x2e6e9539f02088efe5abb7082bb6e8ba8df68e1cca543af48f5cc93523bf7209",
+      "0x57a8a9a8de6131bf61f5d385318c10e29a5d826eed6adbdbeedc3a0539908ed4",
+      "0xceace0419d93c9789498de2ed1e75db53143b730f18cff88660297759c719231",
+      "0x0ce3bcd684f4f795e549a2ddd1f4c539e8d80813b232a448c56d6b28b74fe3ed",
+      "0x5db4c5556edb6dffe30eb26811327678a54f74b7a3072f2834472ea30ee17360",
+      "0x03d7be19e9e961691712fde9fd87b706c7d0768a207b84ef6ad1f81ffa90dec5",
+      "0x8e5e221b22795d96d3de1cad930d7b131f37b6b9dfcccd3f745b08e6900ef1bd",
+      "0xc2213074ba6cf84780030f9dc261fa31999c039811516aaf0fb8fd1e1a9fa0c3",
+      "0x38d3dffed604f5a160b327ecde5147eb1aa46e3d154b98644cd2a39f0f9ab915"
+    ]
     it('Make merkle', async () => {
-      hash = await superblocks.makeMerkle([]);
-      assert.equal(hash, utils.makeMerkle([]), 'Empty array');
-      const twoArray = ['0x0000000000000000000000000000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000000000000000000000000000002'];
-      hash = await superblocks.makeMerkle(twoArray);
-      assert.equal(hash, utils.makeMerkle(twoArray), 'Two items array');
-      const threeArray = ['0x0000000000000000000000000000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000000000000000000000000000002', '0x0000000000000000000000000000000000000000000000000000000000000003'];
-      hash = await superblocks.makeMerkle(threeArray);
-      assert.equal(hash, utils.makeMerkle(threeArray), 'Two items array');
-      const hashes = [];
-      for (let i=0; i<15; i++) {
-        hashes.push(`0x${crypto.randomBytes(32).toString('hex')}`);
-      }
-      hash = await superblocks.makeMerkle(hashes);
-      assert.equal(hash, utils.makeMerkle(hashes), 'Fifteen items array');
+      hash = await superblocks.makeMerkle(zeroHashes);
+      assert.equal(hash, utils.makeMerkle(zeroHashes), 'Empty hashes array');
+      hash = await superblocks.makeMerkle(oneHash);
+      assert.equal(hash, utils.makeMerkle(oneHash), 'One hash array');
+      hash = await superblocks.makeMerkle(twoHashes);
+      assert.equal(hash, utils.makeMerkle(twoHashes), 'Two hashes array');
+      hash = await superblocks.makeMerkle(threeHashes);
+      assert.equal(hash, utils.makeMerkle(threeHashes), 'Three hashes array');
+      hash = await superblocks.makeMerkle(manyHashes);
+      assert.equal(hash, utils.makeMerkle(manyHashes), 'Many hashes array');
     });
   });
   describe('Statuses', () => {
+    let id0;
+    let id1;
+    let id2;
+    let id3;
     const merkleRoot = utils.makeMerkle([]);
     const accumulatedWork = 0;
     const timestamp = (new Date()).getTime() / 1000;

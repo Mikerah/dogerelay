@@ -2,7 +2,7 @@ const fs = require('fs');
 const readline = require('readline');
 const btcProof = require('bitcoin-proof');
 const scryptsy = require('scryptsy');
-const keccak256 = require('js-sha3').keccak256;
+const sha256 = require('js-sha256').sha256;
 
 const SEND_BATCH = true;
 
@@ -26,17 +26,25 @@ async function parseDataFile(filename) {
 
 function makeMerkle(hashes) {
   if (hashes.length == 0) {
-    return `0x${keccak256('')}`;
+    return `0x${sha256('')}`;
   }
   while (hashes.length > 1) {
     const newhashes = [];
     for (let i=0; i< hashes.length; i+=2) {
       const j = i+1 < hashes.length ? i+1 : hashes.length-1;
-      newhashes.push(keccak256(Buffer.from(`${module.exports.formatHexUint32(module.exports.remove0x(hashes[i]))}${module.exports.formatHexUint32(module.exports.remove0x(hashes[j]))}`, 'hex')));
+      newhashes.push(sha256(Buffer.from(`${module.exports.formatHexUint32(module.exports.remove0x(hashes[i]))}${module.exports.formatHexUint32(module.exports.remove0x(hashes[j]))}`, 'hex')));
     }
     hashes = newhashes;
   }
   return `0x${module.exports.formatHexUint32(module.exports.remove0x(hashes[0]))}`;
+}
+
+function hashesToData(hashes) {
+  let result = '';
+  hashes.forEach(hash => {
+    result += `${module.exports.formatHexUint32(module.exports.remove0x(hash))}`;
+  });
+  return `0x${result}`;
 }
 
 
@@ -134,4 +142,5 @@ module.exports = {
     return output;
   },
   makeMerkle,
+  hashesToData,
 };

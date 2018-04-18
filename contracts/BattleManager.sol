@@ -3,7 +3,7 @@ pragma solidity ^0.4.0;
 contract BattleManager {
 
     event NewSession(bytes32 sessionId, address claimant, address challenger);
-    event NewQuery(bytes32 sessionId, address claimant);
+    event NewQuery(bytes32 sessionId, address claimant, uint step);
     event NewResponse(bytes32 sessionId, address challenger);
     event ChallengerConvicted(bytes32 sessionId, address challenger);
     event ClaimantConvicted(bytes32 sessionId, address claimant);
@@ -74,6 +74,8 @@ contract BattleManager {
         return sessionId;
     }
 
+    function queryHashes(bytes32 claimId) internal;
+
     function query(bytes32 sessionId, uint step)
         onlyChallenger(sessionId)
         public
@@ -82,18 +84,25 @@ contract BattleManager {
         bytes32 claimId = s.claimId;
         // SuperblockClaim claim = claims[claimId];
         if (step == 0) {
-
+            queryHashes(claimId);
         }
 
         s.lastChallengerMessage = now;
-        emit NewQuery(sessionId, s.claimant);
+        emit NewQuery(sessionId, s.claimant, step);
     }
 
-    function respond(bytes32 sessionId, uint step, bytes32 hash)
+    function verifyHashes(bytes32 claimId, bytes data) internal;
+
+    function respond(bytes32 sessionId, uint step, bytes data)
         onlyClaimant(sessionId)
         public
     {
         BattleSession storage s = sessions[sessionId];
+        bytes32 claimId = s.claimId;
+        if (step == 0) {
+            verifyHashes(claimId, data);
+        }
+
         s.lastClaimantMessage = now;
         emit NewResponse(sessionId, s.challenger);
     }

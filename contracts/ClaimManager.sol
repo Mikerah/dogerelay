@@ -41,6 +41,10 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         //bytes32 proposalId;
         //IScryptDependent scryptDependent;
         bytes32 superblockId;
+        uint step; // FIXME: Rename to something else
+        // uint numHashes;
+        bytes32[] hashes;
+        mapping(bytes32 => bytes) blockHeaders;
     }
 
   //  mapping(address => uint) public claimantClaims;
@@ -330,4 +334,37 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
 
         return exists && pastChallengeTimeout && pastClaimTimeout && noOngoingGames && noPendingGames;
     } */
+
+    function queryHashes(bytes32 claimId) internal {
+        SuperblockClaim storage claim = claims[claimId];
+        if (claim.step == 0) {
+            /* emit query hashes event */
+            claim.step = 1;
+        } else {
+            /* already responded */
+        }
+    }
+
+    function readBytes32(bytes data, uint index) internal returns (bytes32) {
+        bytes32 result;
+        assembly {
+            result := mload(add(add(data, 0x20), mul(32, index)))
+        }
+        return result;
+    }
+
+    function verifyHashes(bytes32 claimId, bytes data) internal {
+        SuperblockClaim storage claim = claims[claimId];
+        if (claim.step == 1) {
+            claim.step = 2;
+            require(data.length % 32 == 0);
+            uint count = data.length / 32;
+            for (uint i=0; i<count; ++i) {
+                claim.hashes.push(readBytes32(data, i));
+            }
+            bytes32 merkleRoot = makeMerkle(claim.hashes);
+            SuperblockInfo storage superblock = superblocks[claim.superblockId];
+            require(merkleRoot == superblock.blocksMerkleRoot);
+        }
+    }
 }

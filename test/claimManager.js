@@ -58,11 +58,17 @@ contract('ClaimManager', (accounts) => {
       assert.equal(result.logs[1].event, 'VerificationGameStarted', 'Verification battle started');
       sessionId1 = result.logs[1].args.sessionId;
     });
-    it('Verify session', async () => {
+    it('Query hashes', async () => {
       const session = await claimManager.getSession(claimId1, challenger);
       // console.log(JSON.stringify(result, null, '  '));
       assert.equal(session, sessionId1, 'Sessions should match');
       await claimManager.query(sessionId1, 0, { from: challenger });
+    });
+    it('Verify hashes', async () => {
+      const session = await claimManager.getSession(claimId1, challenger);
+      // console.log(JSON.stringify(result, null, '  '));
+      assert.equal(session, sessionId1, 'Sessions should match');
+      await claimManager.respond(sessionId1, 0, "", { from: submitter });
     });
   });
 });

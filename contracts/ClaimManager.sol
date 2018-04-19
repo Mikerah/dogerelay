@@ -44,7 +44,9 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         uint step; // FIXME: Rename to something else
         // uint numHashes;
         bytes32[] hashes;
-        mapping(bytes32 => bytes) blockHeaders;
+        uint countBlockHeaderQueries;
+        mapping(bytes32 => uint) blockHeaderQueries;  // 0 - none, 1 - required, 2 - replied
+        // mapping(bytes32 => bytes) blockHeader;
     }
 
   //  mapping(address => uint) public claimantClaims;
@@ -345,7 +347,19 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         }
     }
 
-    function readBytes32(bytes data, uint index) internal returns (bytes32) {
+    function queryBlockHeader(bytes32 claimId, bytes32 blockHash) internal {
+        SuperblockClaim storage claim = claims[claimId];
+        if (claim.step == 2) {
+            require(claim.countBlockHeaderQueries < claim.hashes.length);
+            require(claim.blockHeaderQueries[blockHash] == 0);
+            claim.countBlockHeaderQueries += 1;
+            claim.blockHeaderQueries[blockHash] = 1;
+        } else {
+
+        }
+    }
+
+    function readBytes32(bytes data, uint index) internal pure returns (bytes32) {
         bytes32 result;
         assembly {
             result := mload(add(add(data, 0x20), mul(32, index)))
@@ -355,6 +369,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
 
     function verifyHashes(bytes32 claimId, bytes data) internal {
         SuperblockClaim storage claim = claims[claimId];
+        require(claim.hashes.length == 0);
         if (claim.step == 1) {
             claim.step = 2;
             require(data.length % 32 == 0);
@@ -365,6 +380,38 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
             bytes32 merkleRoot = makeMerkle(claim.hashes);
             SuperblockInfo storage superblock = superblocks[claim.superblockId];
             require(merkleRoot == superblock.blocksMerkleRoot);
+        }
+    }
+
+    function storeBlockHeader2(bytes _blockHeaderBytes, uint _proposedScryptBlockHash) public returns (uint) {
+        _blockHeaderBytes;
+        _proposedScryptBlockHash;
+        return 0;
+    }
+
+    function sha256mem(bytes memory _rawBytes, uint offset, uint len) internal view returns (bytes32 result) {
+        assembly {
+            // Call sha256 precompiled contract (located in address 0x02) to copy data.
+            // Assign to ptr the next available memory position (stored in memory position 0x40).
+            let ptr := mload(0x40)
+            if iszero(staticcall(gas, 0x02, add(add(_rawBytes, 0x20), offset), len, ptr, 0x20)) {
+                revert(0, 0)
+            }
+            result := mload(ptr)
+        }
+    }
+
+    function verifyBlockHeader(bytes32 claimId, bytes data) internal {
+        SuperblockClaim storage claim = claims[claimId];
+        bytes32 scryptHash = readBytes32(data, 0);
+        if (claim.step == 2) {
+            bytes32 blockHash = sha256(sha256mem(data, 32, data.length - 32));
+            // log1(scryptHash, blockHash);
+            require(claim.blockHeaderQueries[blockHash] == 1);
+            claim.blockHeaderQueries[blockHash] = 2;
+            // FIXME remove scrypthash from data
+            // claim.countBlockHeaderQueries += 1;
+            storeBlockHeader2(data, uint(scryptHash));
         }
     }
 }

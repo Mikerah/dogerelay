@@ -76,7 +76,9 @@ contract BattleManager {
 
     function queryHashes(bytes32 claimId) internal;
 
-    function query(bytes32 sessionId, uint step)
+    function queryBlockHeader(bytes32 claimId, bytes32 blockHash) internal;
+
+    function query(bytes32 sessionId, uint step, bytes32 data)
         onlyChallenger(sessionId)
         public
     {
@@ -85,6 +87,8 @@ contract BattleManager {
         // SuperblockClaim claim = claims[claimId];
         if (step == 0) {
             queryHashes(claimId);
+        } else if (step == 1) {
+            queryBlockHeader(claimId, data);
         }
 
         s.lastChallengerMessage = now;
@@ -92,6 +96,8 @@ contract BattleManager {
     }
 
     function verifyHashes(bytes32 claimId, bytes data) internal;
+
+    function verifyBlockHeader(bytes32 claimId, bytes data) internal;
 
     function respond(bytes32 sessionId, uint step, bytes data)
         onlyClaimant(sessionId)
@@ -101,6 +107,8 @@ contract BattleManager {
         bytes32 claimId = s.claimId;
         if (step == 0) {
             verifyHashes(claimId, data);
+        } else if (step == 1) {
+            verifyBlockHeader(claimId, data);
         }
 
         s.lastClaimantMessage = now;

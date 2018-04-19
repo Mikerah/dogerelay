@@ -47,6 +47,15 @@ function hashesToData(hashes) {
   return `0x${result}`;
 }
 
+function headerToData(blockHeader) {
+  const scryptHash = module.exports.formatHexUint32(module.exports.calcHeaderPoW(blockHeader));
+  return `0x${scryptHash}${blockHeader}`;
+}
+
+function calcBlockHash(blockHeader) {
+  const headerBin = module.exports.fromHex(blockHeader);
+  return `0x${sha256(sha256.arrayBuffer(headerBin))}`;
+}
 
 module.exports = {
   formatHexUint32: function (str) {
@@ -143,4 +152,6 @@ module.exports = {
   },
   makeMerkle,
   hashesToData,
+  headerToData,
+  calcBlockHash,
 };

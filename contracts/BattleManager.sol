@@ -115,6 +115,18 @@ contract BattleManager {
         emit NewResponse(sessionId, s.challenger);
     }
 
+    function verifySuperblock(bytes32 claimId) internal returns (bool);
+
+    function performVerification(bytes32 sessionId) public  {
+        BattleSession storage session = sessions[sessionId];
+        bytes32 claimId = session.claimId;
+        if (verifySuperblock(claimId)) {
+            challengerConvicted(sessionId, session.challenger, claimId);
+        } else {
+            claimantConvicted(sessionId, session.claimant, claimId);
+        }
+    }
+
     //Able to trigger conviction if time of response is too high
     function timeout(bytes32 sessionId, bytes32 claimId)
         public

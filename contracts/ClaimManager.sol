@@ -45,6 +45,7 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         // uint numHashes;
         bytes32[] hashes;
         uint countBlockHeaderQueries;
+        uint countBlockHeaderResponses;
         mapping(bytes32 => uint) blockHeaderQueries;  // 0 - none, 1 - required, 2 - replied
         // mapping(bytes32 => bytes) blockHeader;
     }
@@ -254,10 +255,10 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         require(claim.verificationOngoing == false);
 
         // check that the claim has exceeded the default challenge timeout.
-        require(block.number -  claim.createdAt > defaultChallengeTimeout);
+        //require(block.number -  claim.createdAt > defaultChallengeTimeout);
 
         //check that the claim has exceeded the claim's specific challenge timeout.
-        require(block.number > claim.challengeTimeoutBlockNumber);
+        //require(block.number > claim.challengeTimeoutBlockNumber);
 
         // check that all verification games have been played.
         require(claim.numChallengers <= claim.currentChallenger);
@@ -265,10 +266,38 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         claim.decided = true;
 
         // IScryptDependent(claim.scryptDependent).scryptVerified(claim.proposalId);
+        semiApprove(claim.superblockId);
 
         unbondDeposit(claimId, claim.claimant);
 
         emit ClaimSuccessful(claimId, claim.claimant, claim.superblockId);
+    }
+
+    // @param claimID – the claim ID.
+    function checkClaimSuccessful(bytes32 claimID) public {
+      SuperblockClaim storage claim = claims[claimID];
+
+      require(claimExists(claim));
+
+      // check that there is no ongoing verification game.
+      require(claim.verificationOngoing == false);
+
+      // check that the claim has exceeded the default challenge timeout.
+      //require(block.number.sub(claim.createdAt) > defaultChallengeTimeout);
+
+      //check that the claim has exceeded the claim's specific challenge timeout.
+      //require(block.number > claim.challengeTimeoutBlockNumber);
+
+      // check that all verification games have been played.
+      require(claim.numChallengers == claim.currentChallenger);
+
+      claim.decided = true;
+
+      //IScryptDependent(claim.scryptDependent).scryptVerified(claim.proposalId);
+
+      unbondDeposit(claimID, claim.claimant);
+
+      emit ClaimSuccessful(claimID, claim.claimant, claim.superblockId);
     }
 
     function claimExists(SuperblockClaim claim) pure private returns(bool) {
@@ -383,12 +412,6 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
         }
     }
 
-    function storeBlockHeader2(bytes _blockHeaderBytes, uint _proposedScryptBlockHash) public returns (uint) {
-        _blockHeaderBytes;
-        _proposedScryptBlockHash;
-        return 0;
-    }
-
     function sha256mem(bytes memory _rawBytes, uint offset, uint len) internal view returns (bytes32 result) {
         assembly {
             // Call sha256 precompiled contract (located in address 0x02) to copy data.
@@ -409,9 +432,23 @@ contract ClaimManager is DepositsManager, Superblocks, BattleManager {
             // log1(scryptHash, blockHash);
             require(claim.blockHeaderQueries[blockHash] == 1);
             claim.blockHeaderQueries[blockHash] = 2;
-            // FIXME remove scrypthash from data
-            // claim.countBlockHeaderQueries += 1;
-            storeBlockHeader2(data, uint(scryptHash));
+            claim.countBlockHeaderResponses += 1;
+
+            // FIXME start scrypt hash verification
+            // storeBlockHeader(data, uint(scryptHash));
+
+            if (claim.countBlockHeaderResponses == claim.hashes.length) {
+                claim.step = 3;
+            }
         }
+    }
+
+    function verifySuperblock(bytes32 claimId) internal returns (bool) {
+        SuperblockClaim storage claim = claims[claimId];
+        if (claim.step == 3) {
+            // Verify timestamps & proof of work &
+            return true;
+        }
+        return false;
     }
 }

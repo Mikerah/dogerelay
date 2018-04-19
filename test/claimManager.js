@@ -93,5 +93,17 @@ contract('ClaimManager', (accounts) => {
         // console.log(JSON.stringify(result, null, '  '));
       });
     });
+    it('Verify superblock', async () => {
+      // console.log(JSON.stringify({ hashes }, null, '  '));
+      const result = await claimManager.performVerification(sessionId1, { from: challenger });
+      // console.log(JSON.stringify(result, null, '  '));
+      assert.equal(result.logs[0].event, 'SessionDecided', 'Superblock verified');
+    });
+    it('Accept superblock', async () => {
+      // console.log(JSON.stringify({ hashes }, null, '  '));
+      const result = await claimManager.checkClaimFinished(claimId1, { from: submitter });
+      //console.log(JSON.stringify(result, null, '  '));
+      assert.equal(result.logs[2].event, 'ClaimSuccessful', 'Superblock accepted');
+    });
   });
 });
